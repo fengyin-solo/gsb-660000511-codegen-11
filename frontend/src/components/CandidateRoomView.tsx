@@ -5,6 +5,7 @@ import { connect, disconnect, subscribeParticipants, subscribeRoomStatus, sendHe
 import { useInterviewStore, StatusChangeNotification } from '../store/interview';
 import { ProblemPanel } from './ProblemPanel';
 import { CodeEditor } from './CodeEditor';
+import { ProgressOverview } from './ProgressOverview';
 import { ParticipantStatus, getRoomStatusConfig, formatDuration, formatTime } from '../types';
 import { getProblemById } from '../services/problemService';
 
@@ -23,9 +24,14 @@ const CandidateRoomView: React.FC = () => {
     setProblem,
     statusChangeNotification,
     setStatusChangeNotification,
+    executionHistory,
   } = useInterviewStore();
   const [loading, setLoading] = useState(true);
   const [participantsPanelOpen, setParticipantsPanelOpen] = useState(false);
+  const [progressOpen, setProgressOpen] = useState(false);
+  const [isNarrowScreen, setIsNarrowScreen] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 768
+  );
   const [problemPanelWidth, setProblemPanelWidth] = useState(380);
   const [isDragging, setIsDragging] = useState(false);
   const [duration, setDuration] = useState<string>('');
@@ -167,6 +173,15 @@ const CandidateRoomView: React.FC = () => {
   }, [isDragging, minPanelWidth, maxPanelWidth]);
 
   const onlineCount = participants.filter(p => p.isOnline).length;
+
+  // 监听窄屏断点：概览在窄屏下切换为浮层模式，保证不遮挡代码与题目
+  useEffect(() => {
+    const handleResize = () => setIsNarrowScreen(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const executionCount = executionHistory.length;
 
   useEffect(() => {
     let mounted = true;
@@ -506,6 +521,44 @@ const CandidateRoomView: React.FC = () => {
             </span>
           )}
         </button>
+
+        <button
+          onClick={() => setProgressOpen(!progressOpen)}
+          title="个人进度概览"
+          style={{
+            width: '40px', height: '40px',
+            background: progressOpen ? '#333' : 'transparent',
+            border: 'none',
+            color: progressOpen ? '#2196f3' : '#fff',
+            cursor: 'pointer',
+            fontSize: '18px',
+            borderRadius: '8px',
+            position: 'relative',
+          }}
+          onMouseEnter={(e) => { if (!progressOpen) e.currentTarget.style.background = '#333'; }}
+          onMouseLeave={(e) => { if (!progressOpen) e.currentTarget.style.background = 'transparent'; }}>
+          📈
+          {executionCount > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: '4px',
+              right: '4px',
+              minWidth: '16px',
+              height: '16px',
+              padding: '0 4px',
+              background: '#2196f3',
+              color: '#fff',
+              fontSize: '10px',
+              fontWeight: 'bold',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              {executionCount > 99 ? '99+' : executionCount}
+            </span>
+          )}
+        </button>
       </div>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
@@ -751,6 +804,12 @@ const CandidateRoomView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <ProgressOverview
+        open={progressOpen}
+        onClose={() => setProgressOpen(false)}
+        isNarrow={isNarrowScreen}
+      />
     </div>
     </>
   );
